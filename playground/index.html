@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ascii-backgrounds · playground</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f3ef;
+    --fg: #16171b;
+    --muted: #6b6d75;
+    --panel: rgba(255, 255, 255, 0.82);
+    --line: rgba(22, 23, 27, 0.12);
+    --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0c0d10;
+    --fg: #ececf1;
+    --muted: #8d909b;
+    --panel: rgba(20, 21, 26, 0.82);
+    --line: rgba(236, 236, 241, 0.12);
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    min-height: 100vh;
+  }
+  #hero {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 48px 24px;
+  }
+  .copy { text-align: center; max-width: 560px; }
+  .copy h1 {
+    font: 600 clamp(32px, 5vw, 56px)/1.05 var(--mono);
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+  }
+  .copy p { margin: 0 0 22px; color: var(--muted); font-size: 16px; }
+  .copy code {
+    font: 13px var(--mono);
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+  aside {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: auto;
+    border-left: 1px solid var(--line);
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    padding: 20px 18px 28px;
+  }
+  aside h2 { font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 14px; }
+  label { display: grid; gap: 6px; margin-bottom: 14px; font-size: 12px; color: var(--muted); }
+  label > span { display: flex; justify-content: space-between; }
+  label output { font-family: var(--mono); color: var(--fg); }
+  select, input[type="text"], input[type="color"] {
+    font: 13px var(--mono);
+    color: var(--fg);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 8px;
+    width: 100%;
+  }
+  select option { color: #111; }
+  input[type="color"] { padding: 2px; height: 32px; }
+  input[type="range"] { width: 100%; accent-color: var(--fg); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .check { display: flex; align-items: center; gap: 8px; color: var(--fg); }
+  .buttons { display: flex; gap: 8px; margin: 6px 0 18px; }
+  button {
+    flex: 1;
+    font: 13px var(--mono);
+    color: var(--fg);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 10px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--fg); }
+  pre {
+    font: 11.5px/1.5 var(--mono);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 0 0 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .warn { padding: 10px 12px; border: 1px solid #c33; border-radius: 8px; color: #c33; margin-bottom: 14px; display: none; }
+  @media (max-width: 820px) {
+    body { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); }
+    #hero { min-height: 80vh; }
+  }
+</style>
+</head>
+<body>
+  <main id="hero">
+    <div class="copy">
+      <h1>ascii-backgrounds</h1>
+      <p>Animated ASCII backgrounds for any element. WebGL2, zero dependencies.</p>
+      <code>npm i ascii-backgrounds</code>
+    </div>
+  </main>
+
+  <aside>
+    <h2>Background</h2>
+    <div class="warn" id="warn">WebGL2 is not available in this browser.</div>
+
+    <label><span>Preset</span>
+      <select id="preset">
+        <option value="swell">swell</option>
+        <option value="ripple">ripple</option>
+        <option value="rain">rain</option>
+        <option value="constellation">constellation</option>
+      </select>
+    </label>
+
+    <div class="row">
+      <label><span>Mark</span>
+        <select id="mark"><option value="">preset</option><option value="glyph">glyph</option><option value="dot">dot</option></select>
+      </label>
+      <label><span>Cursor</span>
+        <select id="cursor"><option value="">preset</option><option value="trail">trail</option><option value="lantern">lantern</option><option value="off">off</option></select>
+      </label>
+    </div>
+
+    <label><span>Charset</span>
+      <select id="charset"></select>
+    </label>
+    <label id="customWrap" hidden><span>Custom ramp (empty → dense)</span>
+      <input id="custom" type="text" value=" .oO@" spellcheck="false" />
+    </label>
+
+    <div class="row">
+      <label><span>Palette</span>
+        <select id="palette"></select>
+      </label>
+      <label><span>Theme</span>
+        <select id="theme"><option value="dark">dark</option><option value="light">light</option></select>
+      </label>
+    </div>
+    <label id="colorWrap" hidden><span>Ink colour</span>
+      <input id="color" type="color" value="#7c6cff" />
+    </label>
+
+    <label><span>Speed <output id="speedOut"></output></span>
+      <input id="speed" type="range" min="0" max="5" step="0.05" value="1" />
+    </label>
+    <label><span>Cell size <output id="cellOut"></output></span>
+      <input id="cellSize" type="range" min="6" max="32" step="1" value="12" />
+    </label>
+    <label><span>Opacity <output id="opacityOut"></output></span>
+      <input id="opacity" type="range" min="0" max="1" step="0.05" value="1" />
+    </label>
+
+    <label class="check"><input id="clear" type="checkbox" checked /> Keep the headline clear</label>
+
+    <div class="buttons">
+      <button id="pulse" type="button">Pulse</button>
+      <button id="toggle" type="button">Pause</button>
+    </div>
+
+    <h2>Code</h2>
+    <pre id="code"></pre>
+    <div class="buttons"><button id="copy" type="button">Copy</button></div>
+  </aside>
+
+<script type="module">
+  import * as lib from '../dist/index.js';
+  const { background, charsets, palettes } = lib;
+  const $ = (id) => document.getElementById(id);
+  const presets = { swell: lib.swell, ripple: lib.ripple, rain: lib.rain, constellation: lib.constellation };
+
+  $('charset').innerHTML = '<option value="">preset</option>' +
+    Object.keys(charsets).map((n) => `<option value="${n}">${n}</option>`).join('') +
+    '<option value="__custom">custom…</option>';
+  $('palette').innerHTML = Object.keys(palettes).map((n) => `<option value="${n}">${n}</option>`).join('') +
+    '<option value="__custom">custom…</option>';
+
+  const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  $('theme').value = prefersDark ? 'dark' : 'light';
+  document.documentElement.dataset.theme = $('theme').value;
+
+  function read() {
+    const o = { preset: $('preset').value, theme: $('theme').value };
+    if ($('mark').value) o.mark = $('mark').value;
+    if ($('cursor').value) o.cursor = $('cursor').value === 'off' ? false : $('cursor').value;
+    const cs = $('charset').value;
+    if (cs === '__custom') o.charset = $('custom').value; else if (cs) o.charset = cs;
+    o.palette = $('palette').value === '__custom' ? $('color').value : $('palette').value;
+    o.speed = Number($('speed').value);
+    o.cellSize = Number($('cellSize').value);
+    o.opacity = Number($('opacity').value);
+    o.clear = $('clear').checked;
+    return o;
+  }
+
+  function toOptions(o) {
+    const { preset, clear, ...rest } = o;
+    return { ...rest, preset: presets[preset], clear: clear ? document.querySelector('#hero .copy') : null };
+  }
+
+  function snippet(o) {
+    const lines = [`  preset: ${o.preset},`];
+    if (o.clear) lines.push(`  clear: document.querySelector('#hero h1'),`);
+    for (const [k, v] of Object.entries(o)) {
+      if (k === 'preset' || k === 'clear' || k === 'theme') continue;
+      if (k === 'palette' && v === 'graphite') continue;
+      if (k === 'speed' && v === 1) continue;
+      if (k === 'opacity' && v === 1) continue;
+      lines.push(`  ${k}: ${JSON.stringify(v)},`);
+    }
+    return `import { background, ${o.preset} } from 'ascii-backgrounds';\n\nconst bg = background('#hero', {\n${lines.join('\n')}\n});`;
+  }
+
+  function sync() {
+    const o = read();
+    $('customWrap').hidden = $('charset').value !== '__custom';
+    $('colorWrap').hidden = $('palette').value !== '__custom';
+    $('speedOut').textContent = `${o.speed.toFixed(2)}×`;
+    $('cellOut').textContent = `${o.cellSize}px`;
+    $('opacityOut').textContent = `${Math.round(o.opacity * 100)}%`;
+    document.documentElement.dataset.theme = o.theme;
+    $('code').textContent = snippet(o);
+    return o;
+  }
+
+  const initial = sync();
+  const bg = background($('hero'), toOptions(initial));
+  window.bg = bg;
+  if (!bg.supported) $('warn').style.display = 'block';
+
+  // Preset defaults change cell size per preset; mirror that in the slider.
+  const presetCell = { swell: 12, ripple: 12, rain: 14, constellation: 12 };
+  $('preset').addEventListener('change', () => {
+    $('cellSize').value = presetCell[$('preset').value];
+    const o = sync();
+    bg.setPreset(presets[o.preset]);
+    bg.update(toOptions(o));
+  });
+  for (const el of document.querySelectorAll('aside select, aside input')) {
+    if (el.id === 'preset') continue;
+    el.addEventListener('input', () => bg.update(toOptions(sync())));
+  }
+  $('pulse').addEventListener('click', () => bg.pulse({ element: document.querySelector('#hero h1') }));
+  $('toggle').addEventListener('click', () => {
+    if (bg.playing) bg.pause(); else bg.play();
+    $('toggle').textContent = bg.playing ? 'Pause' : 'Play';
+  });
+  $('copy').addEventListener('click', async () => {
+    await navigator.clipboard.writeText($('code').textContent);
+    $('copy').textContent = 'Copied';
+    setTimeout(() => ($('copy').textContent = 'Copy'), 1200);
+  });
+</script>
+</body>
+</html>

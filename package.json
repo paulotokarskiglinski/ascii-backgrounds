@@ -1,0 +1,59 @@
+{
+  "name": "ascii-backgrounds",
+  "version": "0.1.0",
+  "description": "Animated ASCII backgrounds for any element. WebGL2, zero dependencies.",
+  "keywords": [
+    "ascii",
+    "background",
+    "webgl",
+    "webgl2",
+    "animation",
+    "hero",
+    "canvas",
+    "generative"
+  ],
+  "license": "MIT",
+  "author": "paulotokarskiglinski",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paulotokarskiglinski/ascii-backgrounds.git"
+  },
+  "homepage": "https://github.com/paulotokarskiglinski/ascii-backgrounds#readme",
+  "bugs": {
+    "url": "https://github.com/paulotokarskiglinski/ascii-backgrounds/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./iife": "./dist/ascii-backgrounds.min.js",
+    "./package.json": "./package.json"
+  },
+  "unpkg": "./dist/ascii-backgrounds.min.js",
+  "jsdelivr": "./dist/ascii-backgrounds.min.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json && npm run build:iife",
+    "build:iife": "esbuild src/index.ts --bundle --format=iife --global-name=AsciiBackgrounds --minify --target=es2020 --legal-comments=none --outfile=dist/ascii-backgrounds.min.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test test/*.test.mjs",
+    "dev": "npm run build && node scripts/serve.mjs",
+    "serve": "node scripts/serve.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}
