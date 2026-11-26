@@ -25,6 +25,8 @@ export interface ResolvedOptions {
   theme: Theme;
   reducedMotion: boolean | undefined;
   maxPixelRatio: number;
+  /** 0 means no cap. */
+  fps: number;
   autoplay: boolean;
   clear: ResolvedClearZone[];
 }
@@ -79,6 +81,7 @@ export function resolveOptions(o: BackgroundOptions): ResolvedOptions {
     theme,
     reducedMotion: typeof o.reducedMotion === 'boolean' ? o.reducedMotion : undefined,
     maxPixelRatio: num(o.maxPixelRatio, 2, 0.5, 4),
+    fps: o.fps === 0 ? 0 : num(o.fps, 60, 1, 240),
     autoplay: o.autoplay !== false,
     clear: resolveClear(o.clear),
   };

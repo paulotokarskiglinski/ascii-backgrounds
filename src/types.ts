@@ -111,6 +111,8 @@ export interface BackgroundOptions {
   reducedMotion?: boolean;
   /** Upper bound for devicePixelRatio. Default 2. */
   maxPixelRatio?: number;
+  /** Frame rate cap, 1–240: draws on every Nth display refresh, N nearest the cap. `0` draws on every refresh. Default 60. */
+  fps?: number;
   /** Start animating as soon as the element is on screen. Default true. */
   autoplay?: boolean;
 }

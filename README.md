@@ -56,6 +56,7 @@ Or with a script tag:
 | `font` | CSS font family | monospace stack | Used to draw glyphs |
 | `reducedMotion` | boolean | system setting | `true` holds a still frame |
 | `maxPixelRatio` | number | `2` | Caps devicePixelRatio for big screens |
+| `fps` | number (1–240) or `0` | `60` | Frame rate cap. It draws on every Nth screen refresh (the N nearest the cap) so motion stays even, e.g. 50 fps on a 100 Hz screen. Lower it to save CPU and GPU; `0` draws on every refresh |
 | `autoplay` | boolean | `true` | |
 
 Colours accept any CSS colour, including `oklch(...)`, `var(--brand)` and `currentColor` (resolved against the element). If your site switches theme with a class instead of `prefers-color-scheme`, pass `theme` yourself and call `bg.update({ theme })` when it changes.

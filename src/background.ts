@@ -244,9 +244,19 @@ class Field implements FieldLike, BackgroundHandle {
     if ((window.devicePixelRatio || 1) !== this.lastDpr) this.layoutDirty = true;
     const animating = this.isAnimating();
     if (!animating && !this.needsRender && !this.layoutDirty) return false;
+    if (animating) {
+      this.sinceDraw += dt;
+      // Skip display refreshes until the fps cap allows a frame. The threshold sits half a
+      // refresh early, so every frame lands on the same whole number of refreshes (the one
+      // nearest the cap) and timer jitter can't make the spacing uneven.
+      const minGap = this.opts.fps > 0 ? 1 / this.opts.fps - dt / 2 : 0;
+      if (this.sinceDraw < minGap && !this.needsRender && !this.layoutDirty) return true;
+    }
+    const step = animating ? Math.min(this.sinceDraw, 1) : 0;
+    this.sinceDraw = 0;
     this.needsRender = false;
     try {
-      this.render(animating ? dt : 0);
+      this.render(step);
     } catch (err) {
       this.broken = true;
       console.error(err);
@@ -258,6 +268,8 @@ class Field implements FieldLike, BackgroundHandle {
   // ---- internals -------------------------------------------------------
 
   private lastDpr = 0;
+  /** Seconds of animation time since the last drawn frame (frames skipped by the fps cap add up here). */
+  private sinceDraw = 0;
 
   private isAnimating(): boolean {
     return this._playing && !this.reducedMotion() && !(typeof document !== 'undefined' && document.hidden);

@@ -31,6 +31,15 @@ test('numbers are clamped and junk falls back to defaults', () => {
   assert.equal(o.dotScale, 0.9);
 });
 
+test('fps cap defaults to 60, clamps, and 0 means no cap', () => {
+  assert.equal(resolveOptions({ preset: swell }).fps, 60);
+  assert.equal(resolveOptions({ preset: swell, fps: 30 }).fps, 30);
+  assert.equal(resolveOptions({ preset: swell, fps: 0 }).fps, 0);
+  assert.equal(resolveOptions({ preset: swell, fps: 1000 }).fps, 240);
+  assert.equal(resolveOptions({ preset: swell, fps: 0.2 }).fps, 1);
+  assert.equal(resolveOptions({ preset: swell, fps: NaN }).fps, 60);
+});
+
 test('cursor resolution', () => {
   assert.equal(resolveCursor(undefined, 'trail'), 'trail');
   assert.equal(resolveCursor(undefined, false), false);

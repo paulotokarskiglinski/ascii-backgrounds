@@ -170,6 +170,9 @@
     <label><span>Opacity <output id="opacityOut"></output></span>
       <input id="opacity" type="range" min="0" max="1" step="0.05" value="1" />
     </label>
+    <label><span>Frame rate cap</span>
+      <select id="fps"><option value="24">24 fps</option><option value="30">30 fps</option><option value="60" selected>60 fps</option><option value="0">none</option></select>
+    </label>
 
     <label class="check"><input id="clear" type="checkbox" checked /> Keep the headline clear</label>
 
@@ -209,6 +212,7 @@
     o.speed = Number($('speed').value);
     o.cellSize = Number($('cellSize').value);
     o.opacity = Number($('opacity').value);
+    o.fps = Number($('fps').value);
     o.clear = $('clear').checked;
     return o;
   }
@@ -226,6 +230,7 @@
       if (k === 'palette' && v === 'graphite') continue;
       if (k === 'speed' && v === 1) continue;
       if (k === 'opacity' && v === 1) continue;
+      if (k === 'fps' && v === 60) continue;
       lines.push(`  ${k}: ${JSON.stringify(v)},`);
     }
     return `import { background, ${o.preset} } from 'ascii-backgrounds';\n\nconst bg = background('#hero', {\n${lines.join('\n')}\n});`;
