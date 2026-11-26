@@ -39,6 +39,36 @@ float fbm(vec2 p) {
   }
   return v;
 }
+vec2 hash22(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.xx + p3.yz) * p3.zy);
+}
+// Gradient noise with a quintic fade, roughly -0.7..0.7. Smoother than value noise at low frequency.
+float gnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+  vec2 ga = hash22(i) * 2.0 - 1.0;
+  vec2 gb = hash22(i + vec2(1.0, 0.0)) * 2.0 - 1.0;
+  vec2 gc = hash22(i + vec2(0.0, 1.0)) * 2.0 - 1.0;
+  vec2 gd = hash22(i + vec2(1.0, 1.0)) * 2.0 - 1.0;
+  float a = dot(ga, f);
+  float b = dot(gb, f - vec2(1.0, 0.0));
+  float c = dot(gc, f - vec2(0.0, 1.0));
+  float d = dot(gd, f - vec2(1.0, 1.0));
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+// Three octaves of gradient noise, rotated between octaves to hide the lattice. Roughly -0.6..0.6.
+float gfbm(vec2 p) {
+  mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
+  float v = 0.5 * gnoise(p);
+  p = m * p;
+  v += 0.25 * gnoise(p);
+  p = m * p;
+  v += 0.125 * gnoise(p);
+  return v * 1.6;
+}
 float sdSegment(vec2 p, vec2 a, vec2 b) {
   vec2 pa = p - a;
   vec2 ba = b - a;
@@ -52,7 +82,8 @@ precision highp float;
 precision highp int;
 
 uniform vec2 u_res;          // field size, CSS px
-uniform float u_cell;        // cell size, CSS px
+uniform float u_cell;        // cell height, CSS px
+uniform vec2 u_cellSize;     // cell width and height, CSS px (glyph cells are narrower than tall)
 uniform float u_time;        // preset time (scaled by speed)
 uniform float u_rtime;       // real time, for pointer effects
 uniform vec3 u_pointer;      // lantern x, y, strength
@@ -76,29 +107,33 @@ const FIELD_MAIN = /* glsl */ `
 void main() {
   // One fragment per cell. Row 0 is the top row of the element.
   vec2 cell = floor(gl_FragCoord.xy);
-  vec2 p = (cell + 0.5) * u_cell;
+  vec2 p = (cell + 0.5) * u_cellSize;
   vec2 f = field(p, u_res, u_time);
-  float i = f.x;
+  float i = clamp(f.x, 0.0, 1.0);
   float glow = f.y;
 
   if (u_cursorMode == 1) {
     float r2 = u_cursorRadius * u_cursorRadius;
+    float w = 0.0;
     for (int k = 0; k < ${MAX_TRAIL}; k++) {
       vec4 tr = u_trail[k];
       if (tr.w <= 0.0) continue;
       float life = 1.0 - tr.z / 0.9;
       if (life <= 0.0) continue;
-      vec2 d = p - tr.xy;
-      float w = exp(-dot(d, d) / r2) * life * life;
-      i += w * 0.55;
-      glow += w * 0.9;
+      // Join each sample to the next one so fast strokes stay continuous.
+      vec4 nx = k + 1 < ${MAX_TRAIL} ? u_trail[k + 1] : tr;
+      float dist = nx.w > 0.0 ? sdSegment(p, tr.xy, nx.xy) : length(p - tr.xy);
+      // Eased fade so the tail dissolves instead of blinking out.
+      w = max(w, exp(-dist * dist / r2) * life * life * (3.0 - 2.0 * life));
     }
+    i += w * (0.35 + 0.5 * i) * (1.0 - 0.4 * i);
+    glow += w * 0.75;
   } else if (u_cursorMode == 2 && u_pointer.z > 0.001) {
-    float d = length(p - u_pointer.xy);
-    float k = 1.0 - smoothstep(0.0, u_cursorRadius, d);
-    k = k * k * u_pointer.z;
-    i = i * (1.0 + 1.6 * k) + 0.32 * k;
-    glow += k * 0.85;
+    vec2 d = p - u_pointer.xy;
+    // Gaussian falloff: no visible rim, the light just thins out.
+    float k = exp(-dot(d, d) / (u_cursorRadius * u_cursorRadius * 0.3)) * u_pointer.z;
+    i += k * (0.2 + 0.9 * i) * (1.0 - 0.45 * i);
+    glow += k * k * 0.6;
   }
 
   for (int k = 0; k < ${MAX_PULSES}; k++) {
@@ -141,7 +176,7 @@ uniform sampler2D u_field;
 uniform sampler2D u_prev;
 uniform sampler2D u_atlas;
 uniform float u_mix;
-uniform float u_cellPx;
+uniform vec2 u_cellPx;       // cell width and height, device px
 uniform vec2 u_res;
 uniform int u_glyphCount;
 uniform int u_atlasCols;
@@ -152,6 +187,12 @@ uniform vec3 u_accent;
 uniform float u_opacity;
 
 out vec4 outColor;
+
+// 4x4 ordered-dither threshold in 0..1, fixed per cell so it never flickers.
+const float BAYER[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
+float bayer4(ivec2 c) {
+  return (BAYER[(c.y & 3) * 4 + (c.x & 3)] + 0.5) / 16.0;
+}
 
 void main() {
   vec2 px = vec2(gl_FragCoord.x, u_res.y - gl_FragCoord.y);
@@ -167,19 +208,24 @@ void main() {
   float cov = 0.0;
   if (i > 0.004) {
     if (u_mark == 0) {
-      int idx = min(u_glyphCount - 1, int(i * float(u_glyphCount)));
+      // Dither between the two nearest glyphs so gradients have no contour bands.
+      float level = i * float(u_glyphCount - 1) + bayer4(cell);
+      int idx = clamp(int(level), 0, u_glyphCount - 1);
       ivec2 tile = ivec2(idx % u_atlasCols, idx / u_atlasCols);
-      cov = texelFetch(u_atlas, tile * int(u_cellPx) + ivec2(local), 0).a;
+      cov = texelFetch(u_atlas, tile * ivec2(u_cellPx) + ivec2(local), 0).a;
     } else {
-      float r = 0.5 * u_cellPx * u_dotScale * sqrt(i);
+      float s = min(u_cellPx.x, u_cellPx.y);
+      float r = 0.5 * s * u_dotScale * sqrt(i);
       float d = length(local - 0.5 * u_cellPx);
       cov = clamp(r - d + 0.5, 0.0, 1.0);
     }
   }
 
-  float a = cov * u_opacity * mix(0.5, 1.0, i);
-  a = min(1.0, a * (1.0 + 0.6 * glow));
-  vec3 col = mix(u_ink, u_accent, clamp(glow, 0.0, 1.0));
+  // Faint cells are dim as well as sparse; this is where the depth comes from.
+  float tone = mix(0.16, 1.0, smoothstep(0.0, 0.9, i));
+  float g = smoothstep(0.0, 1.0, clamp(glow, 0.0, 1.0));
+  float a = min(1.0, cov * u_opacity * tone * (1.0 + 0.45 * g));
+  vec3 col = mix(u_ink, u_accent, g);
   outColor = vec4(col * a, a);
 }
 `;

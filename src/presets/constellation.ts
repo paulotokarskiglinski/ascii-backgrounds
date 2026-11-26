@@ -13,23 +13,32 @@ export const constellation: Preset = {
 vec2 field(vec2 p, vec2 res, float t) {
   float v = 0.0;
   float g = 0.0;
+  float lw = u_cell * 0.7;
   for (int k = 0; k < ${MAX_SEGMENTS}; k++) {
     if (k >= u_segCount) break;
     vec4 s = u_segs[k];
     float len = length(s.zw - s.xy);
-    float fade = 1.0 - smoothstep(${(LINK * 0.45).toFixed(1)},${LINK.toFixed(1)}, len);
-    float d = sdSegment(p, s.xy, s.zw);
-    v = max(v, (1.0 - smoothstep(0.0, u_cell * 0.95, d)) * fade * 0.55);
+    // Links fade in as points approach, so they never pop.
+    float fade = 1.0 - smoothstep(${(LINK * 0.4).toFixed(1)}, ${LINK.toFixed(1)}, len);
+    float d = sdSegment(p, s.xy, s.zw) / lw;
+    float line = exp(-d * d) * fade * 0.5;
+    v = max(v, line);
+    g = max(g, line * 0.15);
   }
   for (int k = 0; k < ${MAX_POINTS}; k++) {
     if (k >= u_ptCount) break;
     vec4 q = u_pts[k];
     vec2 d = p - q.xy;
-    float core = exp(-dot(d, d) / (q.z * q.z)) * q.w;
-    v = max(v, core);
-    g = max(g, core * 0.8);
+    float r2 = dot(d, d);
+    float core = exp(-r2 / (q.z * q.z)) * q.w;
+    // Wide, faint halo so each star sits in its own small pool of light.
+    float halo = exp(-r2 / (q.z * q.z * 5.0)) * q.w * 0.2;
+    v = max(v, core + halo);
+    g = max(g, core * 0.75);
   }
-  v += fbm(p / 90.0 + t * 0.02) * 0.07;
+  // Faint drifting nebula with open gaps between its clouds.
+  float neb = gfbm(p / 340.0 + vec2(t * 0.012, -t * 0.008));
+  v += smoothstep(0.05, 0.6, neb) * 0.13 * (1.0 - v);
   return vec2(clamp(v, 0.0, 1.0), g);
 }
 `,

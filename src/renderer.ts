@@ -32,7 +32,10 @@ export interface Target {
 export interface FieldUniforms {
   width: number;
   height: number;
+  /** Cell height, CSS px. */
   cell: number;
+  /** Cell width, CSS px. */
+  cellW: number;
   time: number;
   rtime: number;
   pointer: [number, number, number];
@@ -55,7 +58,9 @@ export interface GlyphUniforms {
   prev: Target | null;
   mix: number;
   atlas: Atlas;
-  cellPx: number;
+  /** Cell size in device px. */
+  cellW: number;
+  cellH: number;
   width: number;
   height: number;
   mark: number;
@@ -259,8 +264,8 @@ export class Renderer {
     return p;
   }
 
-  acquireAtlas(glyphs: string[], cellPx: number, font: string): Atlas {
-    const key = `${cellPx}|${font}|${glyphs.join('\u0000')}`;
+  acquireAtlas(glyphs: string[], cellW: number, cellH: number, font: string): Atlas {
+    const key = atlasKey(glyphs, cellW, cellH, font);
     const hit = this.atlases.get(key);
     if (hit) {
       hit.refs++;
@@ -271,22 +276,29 @@ export class Renderer {
     const cols = Math.min(16, count);
     const rows = Math.ceil(count / cols);
     const c = document.createElement('canvas');
-    c.width = cols * cellPx;
-    c.height = rows * cellPx;
+    c.width = cols * cellW;
+    c.height = rows * cellH;
     const ctx = c.getContext('2d');
     if (!ctx) throw new Error('ascii-backgrounds: 2D canvas unavailable');
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `${Math.max(1, Math.round(cellPx * 0.92))}px ${font}`;
+    // Fill the cell height; shrink only if the widest glyph would spill well out of the cell.
+    let size = Math.max(1, Math.round(cellH * 0.9));
+    ctx.font = `${size}px ${font}`;
+    const widest = Math.max(1, ...glyphs.map((g) => ctx.measureText(g).width));
+    if (widest > cellW * 1.1) {
+      size = Math.max(1, Math.floor((size * cellW * 1.1) / widest));
+      ctx.font = `${size}px ${font}`;
+    }
     glyphs.forEach((g, i) => {
-      const x = (i % cols) * cellPx;
-      const y = Math.floor(i / cols) * cellPx;
+      const x = (i % cols) * cellW;
+      const y = Math.floor(i / cols) * cellH;
       ctx.save();
       ctx.beginPath();
-      ctx.rect(x, y, cellPx, cellPx);
+      ctx.rect(x, y, cellW, cellH);
       ctx.clip();
-      ctx.fillText(g, x + cellPx / 2, y + cellPx / 2 + cellPx * 0.04);
+      ctx.fillText(g, x + cellW / 2, y + cellH / 2 + cellH * 0.04);
       ctx.restore();
     });
     const texture = gl.createTexture()!;
@@ -342,6 +354,7 @@ export class Renderer {
     const U = (n: string) => program.uniform(n);
     gl.uniform2f(U('u_res'), u.width, u.height);
     gl.uniform1f(U('u_cell'), u.cell);
+    gl.uniform2f(U('u_cellSize'), u.cellW, u.cell);
     gl.uniform1f(U('u_time'), u.time);
     gl.uniform1f(U('u_rtime'), u.rtime);
     gl.uniform3f(U('u_pointer'), u.pointer[0], u.pointer[1], u.pointer[2]);
@@ -378,7 +391,7 @@ export class Renderer {
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, u.atlas.texture);
     gl.uniform1f(p.uniform('u_mix'), u.prev ? u.mix : 1);
-    gl.uniform1f(p.uniform('u_cellPx'), u.cellPx);
+    gl.uniform2f(p.uniform('u_cellPx'), u.cellW, u.cellH);
     gl.uniform2f(p.uniform('u_res'), u.width, u.height);
     gl.uniform1i(p.uniform('u_glyphCount'), u.atlas.count);
     gl.uniform1i(p.uniform('u_atlasCols'), u.atlas.cols);
@@ -405,6 +418,11 @@ export class Renderer {
     c.width = Math.max(c.width, round(width));
     c.height = Math.max(c.height, round(height));
   }
+}
+
+/** Cache key for a glyph atlas. */
+export function atlasKey(glyphs: string[], cellW: number, cellH: number, font: string): string {
+  return `${cellW}x${cellH}|${font}|${glyphs.join('\u0000')}`;
 }
 
 let shared: Renderer | null | undefined;

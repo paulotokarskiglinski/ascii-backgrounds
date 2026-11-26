@@ -2,7 +2,7 @@ import { writeClearZones, type ClearBox } from './clear.ts';
 import { colorToRGB, type RGB } from './color.ts';
 import { MAX_CLEAR, MAX_POINTS, MAX_PULSES, MAX_SEGMENTS, MAX_TRAIL } from './limits.ts';
 import { resolveOptions, type ResolvedOptions } from './options.ts';
-import { getRenderer, type Atlas, type FieldLike, type Renderer, type Target } from './renderer.ts';
+import { atlasKey, getRenderer, type Atlas, type FieldLike, type Renderer, type Target } from './renderer.ts';
 import type {
   BackgroundHandle,
   BackgroundOptions,
@@ -17,6 +17,8 @@ import type {
 const TRAIL_LIFE = 0.9;
 const PULSE_LIFE = 2.6;
 const CURSOR_RADIUS = { trail: 34, lantern: 170 } as const;
+/** Width of a glyph cell relative to its height, close to a monospace advance. */
+const GLYPH_ASPECT = 0.6;
 
 interface Layer {
   preset: Preset;
@@ -70,7 +72,8 @@ class Field implements FieldLike, BackgroundHandle {
   private dpr = 1;
   private W = 0;
   private H = 0;
-  private cellPx = 0;
+  private cellW = 0;
+  private cellH = 0;
   private cols = 0;
   private rows = 0;
 
@@ -267,7 +270,11 @@ class Field implements FieldLike, BackgroundHandle {
   private applyOptions(): void {
     const before = this.opts;
     this.opts = resolveOptions(this.user);
-    if (before.cellSize !== this.opts.cellSize || before.maxPixelRatio !== this.opts.maxPixelRatio) {
+    if (
+      before.cellSize !== this.opts.cellSize ||
+      before.maxPixelRatio !== this.opts.maxPixelRatio ||
+      before.mark !== this.opts.mark
+    ) {
       this.layoutDirty = true;
     }
     if (this.opts.cursor !== before.cursor) {
@@ -313,13 +320,16 @@ class Field implements FieldLike, BackgroundHandle {
     this.lastDpr = deviceRatio;
     let dpr = Math.min(deviceRatio, this.opts.maxPixelRatio);
     dpr = Math.min(dpr, r.maxSize / Math.max(cssW, cssH, 1));
-    const cellPx = Math.max(2, Math.round(this.opts.cellSize * dpr));
+    const cellH = Math.max(2, Math.round(this.opts.cellSize * dpr));
+    // Glyphs sit in monospace-shaped cells (narrower than tall) so text reads as a dense texture.
+    const cellW = this.opts.mark === 'dot' ? cellH : Math.max(2, Math.round(cellH * GLYPH_ASPECT));
     const W = Math.round(cssW * dpr);
     const H = Math.round(cssH * dpr);
     this.cssW = cssW;
     this.cssH = cssH;
     this.dpr = dpr;
-    this.cellPx = cellPx;
+    this.cellW = cellW;
+    this.cellH = cellH;
     this.W = W;
     this.H = H;
     if (this.canvas.width !== W) this.canvas.width = W;
@@ -336,17 +346,17 @@ class Field implements FieldLike, BackgroundHandle {
       this.cols = this.rows = 0;
       this.gen = r.gen;
     }
-    const cols = Math.max(1, Math.ceil(this.W / this.cellPx));
-    const rows = Math.max(1, Math.ceil(this.H / this.cellPx));
+    const cols = Math.max(1, Math.ceil(this.W / this.cellW));
+    const rows = Math.max(1, Math.ceil(this.H / this.cellH));
     if (cols !== this.cols || rows !== this.rows || this.targets.length === 0) {
       for (const t of this.targets) r.deleteTarget(t);
       this.targets = [r.createTarget(cols, rows), r.createTarget(cols, rows)];
       this.cols = cols;
       this.rows = rows;
     }
-    const key = `${this.cellPx}|${this.opts.font}|${this.opts.glyphs.join('\u0000')}`;
+    const key = atlasKey(this.opts.glyphs, this.cellW, this.cellH, this.opts.font);
     if (!this.atlas || this.atlas.key !== key) {
-      const next = r.acquireAtlas(this.opts.glyphs, this.cellPx, this.opts.font);
+      const next = r.acquireAtlas(this.opts.glyphs, this.cellW, this.cellH, this.opts.font);
       if (this.atlas) r.releaseAtlas(this.atlas);
       this.atlas = next;
     }
@@ -397,7 +407,8 @@ class Field implements FieldLike, BackgroundHandle {
       }
     }
 
-    const cellCss = this.cellPx / this.dpr;
+    const cellCss = this.cellH / this.dpr;
+    const cellWCss = this.cellW / this.dpr;
     const cursor = this.opts.cursor;
     const pointer = cursor === false ? { x: 0, y: 0, inside: false } : this.pointerLocal;
     const drawLayer = (layer: Layer, target: Target) => {
@@ -413,6 +424,7 @@ class Field implements FieldLike, BackgroundHandle {
         width: c.width,
         height: c.height,
         cell: cellCss,
+        cellW: cellWCss,
         time: this.time,
         rtime: this.rtime,
         pointer: [this.lantern.x, this.lantern.y, this.lantern.s],
@@ -440,7 +452,8 @@ class Field implements FieldLike, BackgroundHandle {
       prev: this.prev ? back : null,
       mix,
       atlas: this.atlas!,
-      cellPx: this.cellPx,
+      cellW: this.cellW,
+      cellH: this.cellH,
       width: this.W,
       height: this.H,
       mark: this.opts.mark === 'dot' ? 1 : 0,

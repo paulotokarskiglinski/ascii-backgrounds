@@ -47,7 +47,7 @@ Or with a script tag:
 | `theme` | `'auto' \| 'light' \| 'dark'` | `'auto'` | `auto` follows `prefers-color-scheme` |
 | `mark` | `'glyph' \| 'dot'` | per preset | |
 | `charset` | name or string | per preset | A ramp from empty to dense, e.g. `' .:-=+*#%@'`. Named: `standard`, `minimal`, `detailed`, `blocks`, `braille`, `dots`, `binary`, `lines`, `rain`, `code`, `letters`, `kana` |
-| `cellSize` | number (4–64) | per preset | CSS px |
+| `cellSize` | number (4–64) | per preset | Cell height in CSS px. Glyph cells are about 0.6× as wide, like monospace text; dot cells are square |
 | `speed` | number (0–5) | `1` | |
 | `cursor` | `boolean \| 'trail' \| 'lantern'` | per preset | `false` turns off all pointer and click response |
 | `clear` | element, `{ element, padding?, feather? }`, or an array (max 4) | none | Quiet zones; `padding` defaults to 24, `feather` to 56 |
@@ -132,7 +132,7 @@ const tide = definePreset({
 background('#hero', { preset: tide });
 ```
 
-Available helpers: `hash11`, `hash12`, `noise`, `fbm`, `sdSegment`, and the uniforms `u_cell` (cell size in CSS px), `u_time` and `u_res`.
+Available helpers: `hash11`, `hash12`, `hash22`, `noise` and `fbm` (value noise), `gnoise` and `gfbm` (smoother gradient noise, roughly −0.6…0.6), `sdSegment`, and the uniforms `u_cell` (cell height in CSS px), `u_cellSize` (cell width and height), `u_time` and `u_res`. Return intensity as a smooth 0–1 value and leave quiet areas at 0: the renderer dithers between neighbouring glyphs and fades faint cells, so soft gradients look best.
 
 For things the GPU can't easily do per cell (particles, simulations), add a `create()` that returns a `tick(ctx)` function. It runs on the CPU each frame and can write up to 48 points (`ctx.points`, 4 floats each) and 80 segments (`ctx.segments`), which the shader reads as `u_pts[i]` / `u_ptCount` and `u_segs[i]` / `u_segCount`. See [`src/presets/constellation.ts`](src/presets/constellation.ts) for an example.
 
